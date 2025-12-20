@@ -21,6 +21,7 @@ struct ContentView: View {
     
     @State var hasSent2FACode: Bool = false
     @State var showLogs: Bool = false
+    @State var showPassword: Bool = false
     
     @ObservedObject var sharedData = SharedData.shared
     
@@ -42,10 +43,27 @@ struct ContentView: View {
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
                                 .textFieldStyle(GlassyTextFieldStyle(isDisabled: hasSent2FACode))
-                            TextField("Password", text: $password)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                                .textFieldStyle(GlassyTextFieldStyle(isDisabled: hasSent2FACode))
+                            HStack {
+                                if showPassword {
+                                    TextField("Password", text: $password)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                        .textFieldStyle(GlassyTextFieldStyle(isDisabled: hasSent2FACode))
+                                } else {
+                                    SecureField("Password", text: $password)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                        .textFieldStyle(GlassyTextFieldStyle(isDisabled: hasSent2FACode))
+                                }
+                                Button(action: {
+                                    showPassword.toggle()
+                                }) {
+                                    Image(systemName: showPassword ? "eye" : "eye.slash")
+                                        .frame(width: 20, height: 22)
+                                }
+                                .buttonStyle(GlassyButtonStyle())
+                                .frame(width: 50)
+                            }
                         }
                     }
                     if hasSent2FACode {
