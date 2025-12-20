@@ -7,35 +7,6 @@
 
 import SwiftUI
 
-struct HeaderView: View {
-    var body: some View {
-        VStack {
-            Text("MuffinStore Jailed")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-            Text("by @mineekdev")
-                .font(.caption)
-        }
-    }
-}
-
-struct FooterView: View {
-    var body: some View {
-        VStack {
-            VStack {
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.red)
-                Text("Use at your own risk!")
-                    .foregroundStyle(.yellow)
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.red)
-            }
-            Text("I am not responsible for any damage, data loss, or any other issues caused by using this tool.")
-                .font(.caption)
-        }
-    }
-}
-
 struct ContentView: View {
     @State var ipaTool: IPATool?
     
@@ -48,129 +19,182 @@ struct ContentView: View {
     
     @State var appLink: String = ""
     
+    @State var hasSent2FACode: Bool = false
+    @State var showLogs: Bool = false
+    
+    @ObservedObject var sharedData = SharedData.shared
+    
     var body: some View {
-        VStack {
-            HeaderView()
-            Spacer()
-            if !isAuthenticated {
-                VStack {
-                    Text("Log in to the App Store")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    Text("Your credentials will be sent directly to Apple.")
-                        .font(.caption)
-                }
-                TextField("Apple ID", text: $appleId)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-                .autocapitalization(.none)
-                .disableAutocorrection(true)
-                SecureField("Password", text: $password)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-                TextField("2FA Code", text: $code)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-                Button("Authenticate") {
-                    if appleId.isEmpty || password.isEmpty {
-                        return
-                    }
-                    if code.isEmpty {
-                        // we can just try to log in and it'll request a code, very scuffed tho.
-                        ipaTool = IPATool(appleId: appleId, password: password)
-                        ipaTool?.authenticate(requestCode: true)
-                        return
-                    }
-                    let finalPassword = password + code
-                    ipaTool = IPATool(appleId: appleId, password: finalPassword)
-                    let ret = ipaTool?.authenticate()
-                    isAuthenticated = ret ?? false
-                }
-                .padding()
-                
-                HStack {
-                    Image(systemName: "info.circle.fill")
-                        .foregroundColor(.yellow)
-                    Text("You WILL need to give a 2FA code to successfully log in.")
-                }
-            } else {
-                if isDowngrading {
-                    VStack {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                        Text("Please wait...")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        Text("The app is being downgraded. This may take a while.")
-                            .font(.caption)
-                        
-                        Button("Done (exit app)") {
-                            exit(0) // scuffed
+        NavigationStack {
+            List {
+                if showLogs {
+                    Section(header: LabelStyle(text: "Logs", icon: "terminal")) {
+                        GlassyTerminal {
+                            LogView()
                         }
-                        .padding()
                     }
+                }
+                // login page view
+                if !isAuthenticated {
+                    Section(header: HeaderStyle(text: "Apple ID", icon: "icloud"), footer: Text("Created by [mineek](https://github.com/mineek/MuffinStoreJailed-Public), UI modifications done by lunginspector for [jailbreak.party](https://github.com/jailbreakdotparty). Use this tool at your own risk! App data may be lost, and other damage could occur.")) {
+                        VStack {
+                            TextField("Email Address", text: $appleId)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                                .textFieldStyle(GlassyTextFieldStyle(isDisabled: hasSent2FACode))
+                            TextField("Password", text: $password)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                                .textFieldStyle(GlassyTextFieldStyle(isDisabled: hasSent2FACode))
+                        }
+                    }
+                    if hasSent2FACode {
+                        Section(header: HeaderStyle(text: "2FA Code", icon: "key"), footer: Text("If you did not receive a notification on any of the devices that are trusted to receive verification codes, type in six random numbers into the field. Trust me.")) {
+                            TextField("2FA Code", text: $code)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                                .textFieldStyle(GlassyTextFieldStyle())
+                        }
+                    }
+                    Button(action: {
+                        Haptic.shared.play(.soft)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            if appleId.isEmpty || password.isEmpty {
+                                Alertinator.shared.alert(title: "No Apple ID details were input!", body: "Please type your Apple ID email address & password, then try again.")
+                            }
+                            if code.isEmpty {
+                                ipaTool = IPATool(appleId: appleId, password: password)
+                                ipaTool?.authenticate(requestCode: true)
+                                hasSent2FACode = true
+                                return
+                            }
+                            let finalPassword = password + code
+                            ipaTool = IPATool(appleId: appleId, password: finalPassword)
+                            let ret = ipaTool?.authenticate()
+                            isAuthenticated = ret ?? false
+                        }
+                    }) {
+                        if hasSent2FACode {
+                            LabelStyle(text: "Log In", icon: "arrow.right")
+                        } else {
+                            LabelStyle(text: "Send 2FA Code", icon: "key")
+                        }
+                    }
+                    .buttonStyle(GlassyButtonStyle(isDisabled: hasSent2FACode ? code.isEmpty : false))
                 } else {
-                    VStack {
-                        Text("Downgrade an app")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        Text("Enter the App Store link of the app you want to downgrade.")
-                            .font(.caption)
-                    }
-                    TextField("App share Link", text: $appLink)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding()
-                    Button("Downgrade") {
-                        if appLink.isEmpty {
-                            return
-                        }
-                        var appLinkParsed = appLink
-                        appLinkParsed = appLinkParsed.components(separatedBy: "id").last ?? ""
-                        for char in appLinkParsed {
-                            if !char.isNumber {
-                                appLinkParsed = String(appLinkParsed.prefix(upTo: appLinkParsed.firstIndex(of: char)!))
-                                break
+                    // downgrading application view
+                    if isDowngrading {
+                        Section {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                VStack(alignment: .leading) {
+                                    Text("Downgrading Application...")
+                                        .fontWeight(.medium)
+                                    Text("This may take a while, and PancakeStore will likely hang for a bit.")
+                                        .font(.footnote)
+                                }
                             }
                         }
-                        print("App ID: \(appLinkParsed)")
-                        isDowngrading = true
-                        downgradeApp(appId: appLinkParsed, ipaTool: ipaTool!)
+                        Button(action: {
+                            Haptic.shared.play(.heavy)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                exitinator()
+                            }
+                        }) {
+                            LabelStyle(text: "Go to Home Screen", icon: "house")
+                        }
+                        .buttonStyle(GlassyButtonStyle(isDisabled: !sharedData.hasAppBeenServed))
+                    } else {
+                        // input the stupid app link or whatever view
+                        Section(header: HeaderStyle(text: "Downgrade App", icon: "arrow.down.app"), footer: Text("Created by [mineek](https://github.com/mineek/MuffinStoreJailed-Public), UI modifications done by lunginspector for [jailbreak.party](https://github.com/jailbreakdotparty). Use this tool at your own risk! App data may be lost, and other damage could occur.")) {
+                            HStack {
+                                TextField("Link to App Store App", text: $appLink)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                                    .textFieldStyle(GlassyTextFieldStyle())
+                                Button(action: {
+                                    Haptic.shared.play(.soft)
+                                    appLink = UIPasteboard.general.string ?? ""
+                                }) {
+                                    Image(systemName: "doc.on.doc")
+                                }
+                                .buttonStyle(GlassyButtonStyle())
+                                .frame(width: 50)
+                            }
+                        }
+                        
+                        VStack {
+                            Button(action: {
+                                Haptic.shared.play(.soft)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                    if appLink.isEmpty {
+                                        return
+                                    }
+                                    var appLinkParsed = appLink
+                                    appLinkParsed = appLinkParsed.components(separatedBy: "id").last ?? ""
+                                    for char in appLinkParsed {
+                                        if !char.isNumber {
+                                            appLinkParsed = String(appLinkParsed.prefix(upTo: appLinkParsed.firstIndex(of: char)!))
+                                            break
+                                        }
+                                    }
+                                    print("App ID: \(appLinkParsed)")
+                                    isDowngrading = true
+                                    downgradeApp(appId: appLinkParsed, ipaTool: ipaTool!)
+                                }
+                            }) {
+                                LabelStyle(text: "Downgrade App", icon: "arrow.down")
+                            }
+                            .buttonStyle(GlassyButtonStyle())
+                            
+                            Button(action: {
+                                Haptic.shared.play(.heavy)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    isAuthenticated = false
+                                    EncryptedKeychainWrapper.nuke()
+                                    EncryptedKeychainWrapper.generateAndStoreKey()
+                                    sleep(3)
+                                    exitinator()
+                                }
+                            }) {
+                                LabelStyle(text: "Log Out & Exit", icon: "xmark")
+                            }
+                            .buttonStyle(GlassyButtonStyle(color: .red))
+                        }
                     }
-                    .padding()
-
-                    Button("Log out and exit") {
+                }
+            }
+            .navigationTitle("PancakeStore")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: {
+                        Haptic.shared.play(.soft)
+                        showLogs.toggle()
+                    }) {
+                        Image(systemName: "terminal")
+                    }
+                }
+            }
+            .onAppear {
+                isAuthenticated = EncryptedKeychainWrapper.hasAuthInfo()
+                print("Found \(isAuthenticated ? "auth" : "no auth") info in keychain")
+                if isAuthenticated {
+                    guard let authInfo = EncryptedKeychainWrapper.getAuthInfo() else {
+                        print("Failed to get auth info from keychain, logging out")
                         isAuthenticated = false
                         EncryptedKeychainWrapper.nuke()
                         EncryptedKeychainWrapper.generateAndStoreKey()
-                        sleep(3)
-                        exit(0) // scuffed
+                        return
                     }
-                    .padding()
-                }
-            }
-            Spacer()
-            FooterView()
-        }
-        .padding()
-        .onAppear {
-            isAuthenticated = EncryptedKeychainWrapper.hasAuthInfo()
-            print("Found \(isAuthenticated ? "auth" : "no auth") info in keychain")
-            if isAuthenticated {
-                guard let authInfo = EncryptedKeychainWrapper.getAuthInfo() else {
-                    print("Failed to get auth info from keychain, logging out")
-                    isAuthenticated = false
-                    EncryptedKeychainWrapper.nuke()
+                    appleId = authInfo["appleId"]! as! String
+                    password = authInfo["password"]! as! String
+                    ipaTool = IPATool(appleId: appleId, password: password)
+                    let ret = ipaTool?.authenticate()
+                    print("Re-authenticated \(ret! ? "successfully" : "unsuccessfully")")
+                } else {
+                    print("No auth info found in keychain, setting up by generating a key in SEP")
                     EncryptedKeychainWrapper.generateAndStoreKey()
-                    return
                 }
-                appleId = authInfo["appleId"]! as! String
-                password = authInfo["password"]! as! String
-                ipaTool = IPATool(appleId: appleId, password: password)
-                let ret = ipaTool?.authenticate()
-                print("Re-authenticated \(ret! ? "successfully" : "unsuccessfully")")
-            } else {
-                print("No auth info found in keychain, setting up by generating a key in SEP")
-                EncryptedKeychainWrapper.generateAndStoreKey()
             }
         }
     }

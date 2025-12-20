@@ -24,6 +24,8 @@ struct SafariWebView: UIViewControllerRepresentable {
 }
 
 func downgradeAppToVersion(appId: String, versionId: String, ipaTool: IPATool) {
+    @ObservedObject var sharedData = SharedData.shared
+    
     let path = ipaTool.downloadIPAForVersion(appId: appId, appVerId: versionId)
     print("IPA downloaded to \(path)")
     
@@ -63,6 +65,7 @@ func downgradeAppToVersion(appId: String, versionId: String, ipaTool: IPATool) {
 
         server.route(.GET, "install", { _ in
             print("Serving install page")
+            sharedData.hasAppBeenServed = true
             let installPage = """
             <script type="text/javascript">
                 window.location = "\(installURL)"

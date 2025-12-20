@@ -1,13 +1,13 @@
 //
-//  AssetsView.swift
-//  ReusableAssets
+//  ViewExtensions.swift
+//  PancakeStore
 //
-//  Created by Main on 12/13/25.
+//  Created by jailbreakdotparty on 12/13/25.
 //
 
 import SwiftUI
 
-struct LabelStyle: View {
+struct HeaderStyle: View {
     var text: String
     var icon: String
     
@@ -22,6 +22,18 @@ struct LabelStyle: View {
                     .frame(alignment: .center)
                 Text(text)
             }
+        }
+    }
+}
+
+struct LabelStyle: View {
+    var text: String
+    var icon: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+            Text(text)
         }
     }
 }
@@ -72,7 +84,7 @@ struct GlassyButtonStyle: ButtonStyle {
 }
 
 struct GlassyTextFieldStyle: TextFieldStyle {
-    var color: Color = Color(.tertiarySystemFill)
+    var color: Color = Color(.quaternaryLabel)
     var isDisabled: Bool = false
     var capsuleField: Bool = false
     var cornerRadius: CGFloat = 18
@@ -111,7 +123,7 @@ struct GlassyTextFieldStyle: TextFieldStyle {
 }
 
 struct GlassyBackground: ViewModifier {
-    var color: Color = Color(.secondarySystemFill)
+    var color: Color = Color(.quaternaryLabel)
     var useFullWidth: Bool = true
     var cornerRadius: CGFloat = 18
     var isInteractive: Bool = true
@@ -140,6 +152,7 @@ struct GlassyTerminal<Content: View>: View {
     var body: some View {
         ZStack(alignment: .top) {
             content
+                .padding(.horizontal)
             VStack {
                 VariableBlurView(maxBlurRadius: 1, direction: .blurredTopClearBottom)
                     .frame(maxHeight: 20)
@@ -150,7 +163,6 @@ struct GlassyTerminal<Content: View>: View {
             .frame(alignment: .top)
         }
         .frame(height: 250)
-        .padding(.horizontal)
         .modifier(GlassyBackground())
     }
 }
